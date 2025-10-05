@@ -1,0 +1,31 @@
+﻿{
+  "mappings": {
+    "properties": {
+      "Timestamp":            { "type": "date", "format": "yyyy-MM-dd HH:mm:ss" },
+      "Source IP Address":    { "type": "ip" },
+      "Destination IP Address": { "type": "ip" },
+      "Source Port":          { "type": "integer" },
+      "Destination Port":     { "type": "integer" },
+      "Protocol":             { "type": "keyword" },
+      "Packet Length":        { "type": "integer" },
+      "Packet Type":          { "type": "keyword" },
+      "Traffic Type":         { "type": "keyword" },
+      "Payload Data":         { "type": "text", "fields": { "raw": { "type": "keyword" } } },
+      "Malware Indicators":   { "type": "text", "fields": { "raw": { "type": "keyword" } } },
+      "Anomaly Scores":       { "type": "double" },
+      "Alerts/Warnings":      { "type": "keyword" },
+      "Attack Type":          { "type": "keyword" },
+      "Attack Signature":     { "type": "keyword" },
+      "Action Taken":         { "type": "keyword" },
+      "Severity Level":       { "type": "keyword" },
+      "User Information":     { "type": "text", "fields": { "raw": { "type": "keyword" } } },
+      "Device Information":   { "type": "text", "fields": { "raw": { "type": "keyword" } } },
+      "Network Segment":      { "type": "keyword" },
+      "Geo-location Data":    { "type": "text", "fields": { "raw": { "type": "keyword" } } },
+      "Proxy Information":    { "type": "keyword" },
+      "Firewall Logs":        { "type": "text", "fields": { "raw": { "type": "keyword" } } },
+      "IDS/IPS Alerts":       { "type": "keyword" },
+      "Log Source":           { "type": "keyword" }
+    }
+  }
+}
