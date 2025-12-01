@@ -1,0 +1,538 @@
+/* ------------------------------
+   Base layout
+   ------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background-color: #0f172a; /* dark slate */
+  color: #e5e7eb; /* light grey */
+}
+
+.app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ------------------------------
+   Top bar
+   ------------------------------ */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(12px);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #22c55e, #22d3ee);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+}
+
+.topbar-title {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  color: #e5e7eb;
+}
+
+.topbar-right {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.topbar-link {
+  font-size: 0.85rem;
+  text-decoration: none;
+  color: #9ca3af;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease-in-out;
+}
+
+.topbar-link:hover {
+  color: #e5e7eb;
+  border-color: rgba(148, 163, 184, 0.5);
+  background: rgba(15, 23, 42, 0.8);
+}
+
+/* ------------------------------
+   Page container & main content
+   ------------------------------ */
+
+.main-content {
+  flex: 1;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.page-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto 2rem;
+}
+
+/* ------------------------------
+   Header section
+   ------------------------------ */
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: #f9fafb;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.header-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+/* ------------------------------
+   Grid / layout helpers
+   ------------------------------ */
+
+.grid {
+  display: grid;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-status {
+    align-items: flex-start;
+  }
+}
+
+/* ------------------------------
+   Cards
+   ------------------------------ */
+
+.card {
+  background: radial-gradient(
+      circle at top left,
+      rgba(59, 130, 246, 0.15),
+      transparent 60%
+    ),
+    rgba(15, 23, 42, 0.98);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.8);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+.card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-body {
+  padding: 0.9rem 1rem 1rem;
+}
+
+/* ------------------------------
+   Turbine info / status rows
+   ------------------------------ */
+
+.turbine-info {
+  margin-bottom: 0.75rem;
+}
+
+.turbine-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.turbine-location {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.status-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+}
+
+/* ------------------------------
+   Badges
+   ------------------------------ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.badge-neutral {
+  background: rgba(31, 41, 55, 0.9);
+  color: #e5e7eb;
+  border-color: rgba(75, 85, 99, 0.9);
+}
+
+.badge-success {
+  background: rgba(22, 163, 74, 0.15);
+  color: #bbf7d0;
+  border-color: rgba(22, 163, 74, 0.8);
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.8);
+}
+
+.badge-danger {
+  background: rgba(220, 38, 38, 0.15);
+  color: #fecaca;
+  border-color: rgba(220, 38, 38, 0.8);
+}
+
+/* ------------------------------
+   Buttons
+   ------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease-in-out;
+  background: rgba(31, 41, 55, 0.8);
+  color: #e5e7eb;
+}
+
+.btn:hover {
+  background: rgba(55, 65, 81, 0.9);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #22c55e, #22d3ee);
+  color: #0b1120;
+  border-color: transparent;
+  box-shadow: 0 8px 20px rgba(34, 197, 94, 0.4);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn-secondary {
+  background: rgba(30, 64, 175, 0.8);
+  border-color: rgba(59, 130, 246, 0.7);
+  color: #e5e7eb;
+}
+
+.btn-secondary:hover {
+  background: rgba(37, 99, 235, 0.95);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #9ca3af;
+}
+
+.btn-ghost:hover {
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+}
+
+.btn-danger {
+  background: rgba(220, 38, 38, 0.9);
+  border-color: rgba(239, 68, 68, 0.9);
+  color: #fee2e2;
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.4);
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 1);
+}
+
+.btn-small {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+}
+
+/* ------------------------------
+   Control rows
+   ------------------------------ */
+
+.controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.config-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.hint-text {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+/* ------------------------------
+   Metrics
+   ------------------------------ */
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.metric {
+  padding: 0.6rem 0.7rem;
+  border-radius: 0.5rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.2rem;
+}
+
+.metric-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.metric-value-small {
+  font-size: 0.85rem;
+  color: #e5e7eb;
+}
+
+/* ------------------------------
+   Attack form & summary
+   ------------------------------ */
+
+.attack-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.form-row label {
+  font-weight: 500;
+}
+
+.form-row input,
+.form-row select {
+  border-radius: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  padding: 0.4rem 0.5rem;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  font-size: 0.85rem;
+}
+
+.form-row input::placeholder {
+  color: #6b7280;
+}
+
+.form-row input:focus,
+.form-row select:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
+}
+
+.optional {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.feedback-text {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-left: 0.5rem;
+}
+
+.divider {
+  height: 1px;
+  background: rgba(148, 163, 184, 0.3);
+  margin: 0.9rem 0;
+}
+
+.attack-summary h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.attack-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+}
+
+/* ------------------------------
+   Table styles
+   ------------------------------ */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.table th,
+.table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+}
+
+.table thead th {
+  text-align: left;
+  font-weight: 600;
+  color: #9ca3af;
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.table tbody tr:nth-child(odd) {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.table tbody tr:hover {
+  background: rgba(30, 64, 175, 0.25);
+}
+
+/* ------------------------------
+   Footer
+   ------------------------------ */
+
+.footer {
+  padding: 0.75rem 1.5rem 1rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: center;
+  border-top: 1px solid rgba(15, 23, 42, 1);
+}
+
+/* ------------------------------
+   Spacing helpers
+   ------------------------------ */
+
+.mt-lg {
+  margin-top: 1.25rem;
+}
