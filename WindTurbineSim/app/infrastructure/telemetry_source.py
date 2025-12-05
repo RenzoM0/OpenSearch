@@ -138,7 +138,7 @@ class DatasetTelemetrySource(TelemetrySource):
     so the stream behaves like live telemetry.
     """
 
-    csv_path: str = "data/Windturbine data.csv"
+    csv_path: str = "data/windturbine_data.csv"
 
     _rows: List[Dict[str, Any]] = field(default_factory=list, init=False)
 
@@ -227,7 +227,7 @@ class DatasetTelemetrySource(TelemetrySource):
             turbine=self.turbine,
             timestamp=timestamp,
             message_type=MessageType.TELEMETRY,
-            source=MessageSource.DATASET,
+            source=MessageSource.REPLAY_DATASET,
             wind_speed_ms=wind_speed_ms,
             lv_active_power_kw=lv_active_power_kw,
             theoretical_power_curve_kwh=theoretical_power_curve_kwh,

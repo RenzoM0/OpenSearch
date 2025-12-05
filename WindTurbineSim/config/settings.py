@@ -43,7 +43,8 @@ class AppSettings:
     stream_heartbeat_interval_seconds: int = int(
         os.getenv("STREAM_HEARTBEAT_INTERVAL_SECONDS", "2")
     )
-    stream_mode: str = os.getenv("STREAM_MODE", "SYNTHETIC").upper()
+    # Default to REPLAY_DATASET when nothing is set
+    stream_mode: str = os.getenv("STREAM_MODE", "REPLAY_DATASET").upper()
 
     # --- Attack defaults ---
     # Default duration (in seconds) for the Loss of Contact attack profile.

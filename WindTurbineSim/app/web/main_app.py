@@ -44,7 +44,7 @@ templates = Jinja2Templates(directory="app/web/templates")
 
 
 # ---------------------------------------------------------------------------
-# Synthetic telemetry source (for STREAM_MODE = SYNTHETIC / MIXED)
+# Simple synthetic telemetry source
 # ---------------------------------------------------------------------------
 
 
@@ -122,7 +122,7 @@ def build_streaming_service() -> StreamingService:
         name="Wind Turbine Alpha",
         location="Demo Site",
         rated_power_kw=2000.0,
-        description="Synthetic / dataset demo turbine for WindTurbineSim.",
+        description="Demo turbine for WindTurbineSim.",
         status=TurbineStatus.ONLINE,
     )
 
@@ -148,19 +148,25 @@ def build_streaming_service() -> StreamingService:
     state = StreamState()
 
     # 2) Infrastructure – choose telemetry source based on mode
-    if mode == StreamMode.REPLAY_DATASET:
-        telemetry_source = DatasetTelemetrySource(
+    if mode is StreamMode.REPLAY_DATASET:
+        telemetry_source: TelemetrySource = DatasetTelemetrySource(
             source_id="dataset-1",
-            name="Dataset telemetry source",
+            name="Windturbine CSV replay",
             source_type=TelemetrySourceType.DATASET,
-            description="Replays wind turbine telemetry from CSV dataset.",
+            description="Replay from Windturbine data.csv",
             turbine=turbine,
-            # csv_path left as default: "data/Windturbine data.csv"
         )
-    else:
-        # For SYNTHETIC or MIXED we currently just use synthetic.
-        # (MIXED behaviour could be added later.)
+    elif mode is StreamMode.SYNTHETIC:
         telemetry_source = SyntheticTelemetrySource(turbine=turbine)
+    else:
+        # For MIXED we currently just use the dataset source as well
+        telemetry_source = DatasetTelemetrySource(
+            source_id="dataset-mixed",
+            name="Mixed (dataset-based) telemetry",
+            source_type=TelemetrySourceType.DATASET,
+            description="Mixed mode (currently dataset replay)",
+            turbine=turbine,
+        )
 
     queue = TurbineMessageQueue(
         max_size=config.max_queue_size,

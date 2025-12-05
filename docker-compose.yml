@@ -85,7 +85,7 @@ services:
       # Streaming defaults
       - STREAM_DATA_INTERVAL_SECONDS=5
       - STREAM_HEARTBEAT_INTERVAL_SECONDS=2
-      - STREAM_MODE=SYNTHETIC
+      - STREAM_MODE=REPLAY_DATASET
     ports:
       - "8000:8000"
     networks:
