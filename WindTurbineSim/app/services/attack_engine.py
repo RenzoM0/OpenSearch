@@ -1,47 +1,63 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
 import random
 
 from app.domain.attacks import (
     AttackProfile,
-    AttackCategory,
     ManipulationType,
     DurationMode,
 )
-from app.domain.messages import TurbineMessage, TelemetryReading
+from app.domain.messages import (
+    TurbineMessage,
+    TelemetryReading,
+    MessageType,
+)
 
 
 @dataclass
 class AttackEngine:
     """
-    Applies AttackProfile rules to TurbineMessage instances.
+    Applies attack profiles to outgoing messages.
 
-    Supports two main categories:
-    - DATA_MANIPULATION  -> modify message fields (e.g. spoof power values)
-    - MESSAGE_SUPPRESSION -> decide to drop/suppress messages (loss of contact)
+    Key methods used by StreamingService:
+
+    - start_attack(profile, messages_to_affect, end_time)
+    - is_attack_active(now)
+    - should_suppress(message, now) -> bool
+    - apply_attack(message) -> TurbineMessage
+
+    For the 'Loss of Contact' attack (MESSAGE_SUPPRESSION + TIME_WINDOW),
+    we simply drop messages (usually heartbeats) while the attack is active.
     """
 
-    active: bool = field(default=False, init=False)
-    active_profile: Optional[AttackProfile] = field(default=None, init=False)
-
-    remaining_messages_to_affect: Optional[int] = field(default=None, init=False)
-    suppression_end_time: Optional[datetime] = field(default=None, init=False)
-
-    last_applied_at: Optional[datetime] = field(default=None, init=False)
-
-    random_seed: Optional[int] = None
     enabled: bool = True
 
-    def __post_init__(self) -> None:
-        if self.random_seed is not None:
-            random.seed(self.random_seed)
+    active: bool = False
+    active_profile: Optional[AttackProfile] = None
 
-    # --------------------------------------------------------------------- #
+    remaining_messages_to_affect: Optional[int] = None
+    suppression_end_time: Optional[datetime] = None
+
+    last_applied_at: Optional[datetime] = None
+
+    # Internal counter (for engine-level stats / debugging)
+    affected_messages_count: int = 0
+
+    # ------------------------------------------------------------------ #
     # Lifecycle
-    # --------------------------------------------------------------------- #
+    # ------------------------------------------------------------------ #
+    def reset(self) -> None:
+        """Reset all attack state."""
+        self.active = False
+        self.active_profile = None
+        self.remaining_messages_to_affect = None
+        self.suppression_end_time = None
+        self.last_applied_at = None
+        self.affected_messages_count = 0
+
     def start_attack(
         self,
         profile: AttackProfile,
@@ -51,14 +67,10 @@ class AttackEngine:
         """
         Activate an attack with the given profile.
 
-        - For SINGLE_MESSAGE: affects 1 (or messages_to_affect if provided)
-        - For MULTIPLE_MESSAGES: affects profile.default_messages_to_affect
-          (or messages_to_affect if provided)
-        - For TIME_WINDOW: uses end_time, or computes it from
-          profile.default_duration_seconds.
+        StreamingService is responsible for computing `end_time` when
+        using TIME_WINDOW attacks (like Loss of Contact).
         """
         if not self.enabled:
-            # Engine is globally disabled, do nothing.
             return
 
         self.active_profile = profile
@@ -68,6 +80,7 @@ class AttackEngine:
         # Reset counters
         self.remaining_messages_to_affect = None
         self.suppression_end_time = None
+        self.affected_messages_count = 0
 
         # Duration by message count
         if profile.duration_mode is DurationMode.SINGLE_MESSAGE:
@@ -96,78 +109,127 @@ class AttackEngine:
         self.remaining_messages_to_affect = None
         self.suppression_end_time = None
         self.last_applied_at = None
+        self.affected_messages_count = 0
 
-    def is_attack_active(self, current_time: Optional[datetime] = None) -> bool:
+    # ------------------------------------------------------------------ #
+    # State checks
+    # ------------------------------------------------------------------ #
+    def _decrement_remaining(self) -> None:
+        """Decrease remaining message budget and auto-stop if it reaches 0."""
+        if self.remaining_messages_to_affect is None:
+            return
+
+        self.remaining_messages_to_affect -= 1
+        if self.remaining_messages_to_affect <= 0:
+            self.stop_attack()
+
+    def is_attack_active(self, now: Optional[datetime] = None) -> bool:
         """
-        Check if an attack is currently active, considering:
-        - engine enabled flag
-        - active flag
-        - remaining_messages_to_affect (if used)
-        - suppression_end_time (for TIME_WINDOW)
+        Return True if an attack is currently active.
+
+        Also performs auto-stop when the time window / message budget
+        has been exhausted.
         """
-        if not self.enabled or not self.active or self.active_profile is None:
+        if not self.enabled:
+            return False
+        if not self.active:
+            return False
+        if self.active_profile is None:
             return False
 
-        # Check message count
+        profile = self.active_profile
+        now = now or datetime.utcnow()
+
+        # TIME_WINDOW: stop after suppression_end_time
+        if profile.duration_mode is DurationMode.TIME_WINDOW:
+            if (
+                self.suppression_end_time is not None
+                and now >= self.suppression_end_time
+            ):
+                self.stop_attack()
+                return False
+            return True
+
+        # MULTIPLE_MESSAGES / SINGLE_MESSAGE: stop when budget exhausted
         if (
             self.remaining_messages_to_affect is not None
             and self.remaining_messages_to_affect <= 0
         ):
+            self.stop_attack()
             return False
-
-        # Check time window
-        if (
-            self.active_profile.duration_mode is DurationMode.TIME_WINDOW
-            and self.suppression_end_time is not None
-        ):
-            now = current_time or datetime.utcnow()
-            if now > self.suppression_end_time:
-                return False
 
         return True
 
-    def reset(self) -> None:
-        """Reset the engine completely."""
-        self.stop_attack()
-        # Note: enabled and random_seed are left as-is
+    # ------------------------------------------------------------------ #
+    # Decision points used by StreamingService
+    # ------------------------------------------------------------------ #
+    def should_suppress(self, message: TurbineMessage, now: datetime) -> bool:
+        """
+        Decide whether this message should be suppressed entirely.
 
-    # --------------------------------------------------------------------- #
-    # Application of attacks
-    # --------------------------------------------------------------------- #
-    def _decrement_remaining(self) -> None:
-        if self.remaining_messages_to_affect is not None:
-            self.remaining_messages_to_affect -= 1
+        For 'Loss of Contact' (MESSAGE_SUPPRESSION + TIME_WINDOW) we drop
+        messages instead of sending them into OpenSearch.
+
+        Which messages are dropped is determined by the AttackProfile.
+        For example:
+        - for LOSS_CONTACT_10MIN (fields_affected: 'heartbeats (suppressed)')
+          we only suppress heartbeat messages.
+        """
+        if not self.is_attack_active(now):
+            return False
+
+        profile = self.active_profile
+        if profile is None or not profile.is_message_suppression():
+            return False
+
+        fields = (profile.fields_affected or "").lower()
+
+        # Suppress heartbeats if profile mentions heartbeats
+        if "heartbeat" in fields:
+            if getattr(message, "message_type", None) is MessageType.HEARTBEAT:
+                self._consume_one()
+                return True
+
+        # Suppress telemetry if profile mentions it explicitly or uses a generic marker
+        if "telemetry" in fields or "all" in fields or fields.strip() == "":
+            if getattr(message, "message_type", None) is MessageType.TELEMETRY:
+                self._consume_one()
+                return True
+
+        return False
 
     def apply_attack(self, message: TurbineMessage) -> TurbineMessage:
         """
-        Apply a DATA_MANIPULATION attack to a message.
+        Apply a data manipulation attack to the message (if any).
 
-        - If no active attack, returns the message unchanged.
-        - If the active profile is MESSAGE_SUPPRESSION, this method
-          will NOT suppress the message; use should_suppress() for that.
+        For Loss of Contact (MESSAGE_SUPPRESSION attack), this method will not
+        be used, because messages are already dropped by should_suppress().
+
+        For DATA_MANIPULATION attacks (POWER_SPOOF, POWER_DRIFT, ...), this
+        updates TelemetryReading values and marks them as attacked.
         """
-        if not self.is_attack_active():
+        if not self.enabled:
+            return message
+        if not self.active:
+            return message
+        if self.active_profile is None:
             return message
 
         profile = self.active_profile
-        assert profile is not None  # for type checkers
-
-        # Only manipulate data for DATA_MANIPULATION attacks
         if not profile.is_data_manipulation():
             return message
 
-        # Currently we only manipulate TelemetryReading objects
+        # We only manipulate telemetry readings
         if not isinstance(message, TelemetryReading):
             return message
 
-        # Very simple manipulation logic; can be extended later:
         manip_type = profile.manipulation_type
 
         if manip_type is ManipulationType.OVERRIDE:
             # Example: set power to an unrealistically high fixed value
-            message.lv_active_power_kw = max(
-                message.lv_active_power_kw, message.lv_active_power_kw * 3.0 or 3000.0
-            )
+            # (keep at least current value * 3 or 3000 kW)
+            base = message.lv_active_power_kw or 0.0
+            message.lv_active_power_kw = max(base * 3.0, 3000.0)
 
         elif manip_type is ManipulationType.MULTIPLY:
             # Example: double the active power
@@ -183,72 +245,38 @@ class AttackEngine:
             message.lv_active_power_kw *= factor
 
         # Basic anomaly score bump to make it stand out
-        message.anomaly_score = max(message.anomaly_score, 1.0)
+        current_score = message.anomaly_score or 0.0
+        message.anomaly_score = max(current_score, 1.0)
 
-        # Mark message as attacked
-        message.mark_as_attack(profile.attack_profile_id)
+        # Mark message as attacked using the profile id
+        message.mark_attacked(
+            notes=f"Attack profile {profile.attack_profile_id} applied"
+        )
 
-        # Optionally refresh content description
+        # Refresh content description
         message.update_content()
 
         # Update engine bookkeeping
         self.last_applied_at = datetime.utcnow()
         self._decrement_remaining()
+        self.affected_messages_count += 1
 
         return message
 
-    def should_suppress(
-        self,
-        message: TurbineMessage,
-        current_time: Optional[datetime] = None,
-    ) -> bool:
-        """
-        Decide whether a message should be suppressed (not sent).
-
-        Only applies when:
-        - attack is active
-        - category is MESSAGE_SUPPRESSION (e.g. loss of contact)
-        """
-        if not self.is_attack_active(current_time):
-            return False
-
-        profile = self.active_profile
-        assert profile is not None  # for type checkers
-
-        if not profile.is_message_suppression():
-            return False
-
-        # If TIME_WINDOW-based, re-check time window here (defensive)
-        if (
-            profile.duration_mode is DurationMode.TIME_WINDOW
-            and self.suppression_end_time is not None
-        ):
-            now = current_time or datetime.utcnow()
-            if now > self.suppression_end_time:
-                return False
-
-        # At this point, we are in an active suppression window
-        self.last_applied_at = datetime.utcnow()
+    # ------------------------------------------------------------------ #
+    # Helpers / status
+    # ------------------------------------------------------------------ #
+    def _consume_one(self) -> None:
+        """Update counters when we suppress one message."""
+        self.affected_messages_count += 1
         self._decrement_remaining()
 
-        # We don't change the message here; StreamingService will simply not send it
-        return True
-
-    # --------------------------------------------------------------------- #
-    # Introspection / UI helpers
-    # --------------------------------------------------------------------- #
     def get_status_summary(self) -> str:
-        """Return a short human-readable status summary for UI/logs."""
-        if not self.enabled:
-            return "Attack engine disabled"
-
+        """Return a short summary of the current attack state."""
         if not self.active or self.active_profile is None:
             return "No active attack"
 
         profile = self.active_profile
-        cat = profile.attack_category.name
-        mode = profile.duration_mode.name
-
         remaining = (
             str(self.remaining_messages_to_affect)
             if self.remaining_messages_to_affect is not None
@@ -263,6 +291,7 @@ class AttackEngine:
 
         return (
             f"Active attack: {profile.name} "
-            f"(category={cat}, mode={mode}, remaining={remaining}, "
-            f"end_time={end_time})"
+            f"(category={profile.attack_category.name}, "
+            f"mode={profile.duration_mode.name}, "
+            f"remaining={remaining}, end_time={end_time})"
         )

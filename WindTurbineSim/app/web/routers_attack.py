@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from config import get_settings
 from app.services.streaming_service import StreamingService
 from app.domain.attacks import (
     AttackProfile,
@@ -30,12 +31,17 @@ def _create_default_profiles() -> Dict[str, AttackProfile]:
     """Create a small set of default attack profiles for the simulator."""
     profiles: Dict[str, AttackProfile] = {}
 
+    settings = get_settings()
+    loss_contact_duration = settings.loss_contact_duration_seconds
+
     # 1) High power spoof – unrealistically high power for one reading
     profiles["POWER_SPOOF"] = AttackProfile(
         attack_profile_id="POWER_SPOOF",
         name="High Power Spoof (single reading)",
-        description="Sets the active power to an unrealistically high value "
-        "for a single telemetry reading.",
+        description=(
+            "Sets the active power to an unrealistically high value "
+            "for a single telemetry reading."
+        ),
         attack_category=AttackCategory.DATA_MANIPULATION,
         manipulation_type=ManipulationType.OVERRIDE,
         duration_mode=DurationMode.SINGLE_MESSAGE,
@@ -50,8 +56,10 @@ def _create_default_profiles() -> Dict[str, AttackProfile]:
     profiles["POWER_OFFSET_MULTI"] = AttackProfile(
         attack_profile_id="POWER_OFFSET_MULTI",
         name="Power Offset (multiple readings)",
-        description="Increases active power output by a fixed offset "
-        "for multiple consecutive readings.",
+        description=(
+            "Increases active power output by a fixed offset "
+            "for multiple consecutive readings."
+        ),
         attack_category=AttackCategory.DATA_MANIPULATION,
         manipulation_type=ManipulationType.OFFSET,
         duration_mode=DurationMode.MULTIPLE_MESSAGES,
@@ -62,17 +70,19 @@ def _create_default_profiles() -> Dict[str, AttackProfile]:
         enabled=True,
     )
 
-    # 3) Loss of contact – suppress heartbeats for a time window
+    # 3) Loss of contact – suppress heartbeats for a configurable time window
     profiles["LOSS_CONTACT_10MIN"] = AttackProfile(
         attack_profile_id="LOSS_CONTACT_10MIN",
-        name="Loss of Contact (10 minutes)",
-        description="Simulates loss of contact by suppressing heartbeat "
-        "messages for about 10 minutes.",
+        name=f"Loss of Contact ({loss_contact_duration} seconds)",
+        description=(
+            "Simulates loss of contact by suppressing heartbeat messages "
+            f"for about {loss_contact_duration} seconds."
+        ),
         attack_category=AttackCategory.MESSAGE_SUPPRESSION,
         manipulation_type=None,
         duration_mode=DurationMode.TIME_WINDOW,
         default_messages_to_affect=0,
-        default_duration_seconds=600,  # 10 minutes
+        default_duration_seconds=loss_contact_duration,
         fields_affected="heartbeats (suppressed)",
         severity=5,
         enabled=True,
@@ -120,6 +130,11 @@ class TriggerAttackRequest(BaseModel):
     messages_to_affect: Optional[int] = None
     duration_seconds: Optional[int] = None
     triggered_by: Optional[str] = "user"
+
+
+class StopAttackRequest(BaseModel):
+    attack_event_id: Optional[str] = None
+    reason: Optional[str] = "Stopped by user"
 
 
 def _profile_to_response(profile: AttackProfile) -> AttackProfileResponse:
@@ -192,7 +207,10 @@ def trigger_attack(
     """
     profile = ATTACK_PROFILES.get(request.attack_profile_id)
     if profile is None or not profile.enabled:
-        raise HTTPException(status_code=404, detail="AttackProfile not found or disabled")
+        raise HTTPException(
+            status_code=404,
+            detail="AttackProfile not found or disabled",
+        )
 
     event = service.trigger_attack(
         profile=profile,
@@ -200,6 +218,26 @@ def trigger_attack(
         duration_seconds=request.duration_seconds,
         triggered_by=request.triggered_by or "user",
     )
+
+    return _event_to_response(event)
+
+
+@router.post("/stop", response_model=AttackEventResponse)
+def stop_attack(
+    request: StopAttackRequest,
+    service: StreamingService = Depends(get_streaming_service),
+) -> AttackEventResponse:
+    """
+    Manually stop the currently active attack (or a specific AttackEvent by id).
+
+    If no attack_event_id is given, the most recent ACTIVE event is stopped.
+    """
+    event = service.stop_active_attack(
+        attack_event_id=request.attack_event_id,
+        reason=request.reason or "Stopped by user",
+    )
+    if event is None:
+        raise HTTPException(status_code=404, detail="No active attack to stop")
 
     return _event_to_response(event)
 

@@ -19,6 +19,7 @@ class AppSettings:
     - APP_ENV
     - OPENSEARCH_HOST / PORT / SCHEME / USERNAME / PASSWORD / INDEX
     - STREAM_DATA_INTERVAL_SECONDS / STREAM_HEARTBEAT_INTERVAL_SECONDS / STREAM_MODE
+    - LOSS_CONTACT_DURATION_SECONDS (for the Loss of Contact attack)
     """
 
     # --- App environment ---
@@ -43,6 +44,12 @@ class AppSettings:
         os.getenv("STREAM_HEARTBEAT_INTERVAL_SECONDS", "2")
     )
     stream_mode: str = os.getenv("STREAM_MODE", "SYNTHETIC").upper()
+
+    # --- Attack defaults ---
+    # Default duration (in seconds) for the Loss of Contact attack profile.
+    loss_contact_duration_seconds: int = int(
+        os.getenv("LOSS_CONTACT_DURATION_SECONDS", "600")
+    )
 
 
 _settings_instance: Optional[AppSettings] = None

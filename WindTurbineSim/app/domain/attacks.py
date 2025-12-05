@@ -72,10 +72,13 @@ class AttackProfile:
     default_duration_seconds: int = 0  # 0 = not time-based
 
     fields_affected: str = ""  # e.g. "lv_active_power_kw, content"
-    severity: int = 1  # 1..5
+    severity: int = 1          # 1–5
 
     enabled: bool = True
 
+    # ------------------------------------------------------------------ #
+    # Helpers
+    # ------------------------------------------------------------------ #
     def is_data_manipulation(self) -> bool:
         return self.attack_category is AttackCategory.DATA_MANIPULATION
 
@@ -127,9 +130,12 @@ class AttackEvent:
     created_at: datetime = field(default_factory=datetime.utcnow)
     notes: str = ""
 
-    # Optional: keep direct references to affected messages
+    # Optional: keep direct references to affected messages (for debugging / UI)
     affected_messages: List[TurbineMessage] = field(default_factory=list)
 
+    # ------------------------------------------------------------------ #
+    # Lifecycle
+    # ------------------------------------------------------------------ #
     def mark_started(self, start: Optional[datetime] = None) -> None:
         """Mark the attack as started."""
         self.status = AttackEventStatus.ACTIVE
@@ -149,7 +155,10 @@ class AttackEvent:
             else:
                 self.notes = f"Cancelled: {reason}"
 
-    def increment_affected_messages(self, message: Optional[TurbineMessage] = None) -> None:
+    def increment_affected_messages(
+        self,
+        message: Optional[TurbineMessage] = None,
+    ) -> None:
         """
         Increment the count of affected messages and optionally register
         the message itself.
@@ -164,14 +173,17 @@ class AttackEvent:
         if self.status is not AttackEventStatus.ACTIVE:
             return False
 
-        # If the profile uses a time window and we have an end_time, we can
-        # use that to determine activity.
+        # If the profile uses a time window and we have an end_time,
+        # we can use that to determine activity.
         if self.profile.duration_mode is DurationMode.TIME_WINDOW and self.end_time:
             current_time = now or datetime.utcnow()
-            return self.start_time is not None and self.start_time <= current_time <= self.end_time
+            return (
+                self.start_time is not None
+                and self.start_time <= current_time <= self.end_time
+            )
 
-        # For other duration modes, the StreamingService / AttackEngine will
-        # typically handle when to stop the attack; here we just check status.
+        # For other duration modes, StreamingService / AttackEngine will
+        # usually decide when to stop the attack; here we just check status.
         return True
 
     def compute_default_end_time(self) -> Optional[datetime]:
@@ -187,7 +199,9 @@ class AttackEvent:
         if self.start_time is None:
             return None
 
-        return self.start_time + timedelta(seconds=self.profile.default_duration_seconds)
+        return self.start_time + timedelta(
+            seconds=self.profile.default_duration_seconds
+        )
 
     def get_summary(self) -> str:
         status = self.status.name
@@ -196,3 +210,13 @@ class AttackEvent:
             f"AttackEvent {self.attack_event_id}: {profile_name} "
             f"({status}, affected={self.affected_messages_count})"
         )
+
+
+__all__ = [
+    "AttackCategory",
+    "ManipulationType",
+    "DurationMode",
+    "AttackEventStatus",
+    "AttackProfile",
+    "AttackEvent",
+]

@@ -55,7 +55,12 @@ function formatDateTime(value) {
 }
 
 function clearBadgeClasses(el) {
-  el.classList.remove("badge-neutral", "badge-success", "badge-warning", "badge-danger");
+  el.classList.remove(
+    "badge-neutral",
+    "badge-success",
+    "badge-warning",
+    "badge-danger",
+  );
 }
 
 function setBadge(el, text, tone = "neutral") {
@@ -124,7 +129,6 @@ async function refreshStatus() {
     return;
   }
 
-  // DOM elements
   const streamBadge = document.getElementById("stream-status-badge");
   const connBadge = document.getElementById("connectivity-status-badge");
   const osBadge = document.getElementById("opensearch-status-badge");
@@ -133,7 +137,9 @@ async function refreshStatus() {
   const lastHeartbeatEl = document.getElementById("last-heartbeat");
 
   const cfgDataIntervalEl = document.getElementById("cfg-data-interval");
-  const cfgHeartbeatIntervalEl = document.getElementById("cfg-heartbeat-interval");
+  const cfgHeartbeatIntervalEl = document.getElementById(
+    "cfg-heartbeat-interval",
+  );
   const cfgModeEl = document.getElementById("cfg-mode");
   const cfgIndexEl = document.getElementById("cfg-index");
 
@@ -141,11 +147,12 @@ async function refreshStatus() {
   const datasetPosEl = document.getElementById("dataset-position");
 
   const metricTotalEl = document.getElementById("metric-total-messages");
-  const metricAttackedEl = document.getElementById("metric-attacked-messages");
+  const metricAttackedEl = document.getElementById(
+    "metric-attacked-messages",
+  );
   const metricStartedEl = document.getElementById("metric-started-at");
   const metricUpdatedEl = document.getElementById("metric-updated-at");
 
-  // Status + connectivity
   const statusStr = data.status || "UNKNOWN";
   if (streamBadge) {
     let tone = "neutral";
@@ -163,7 +170,6 @@ async function refreshStatus() {
     setBadge(connBadge, connStr, tone);
   }
 
-  // OpenSearch badge
   if (osBadge) {
     const connected = !!data.opensearch_connected;
     const label = connected ? "OpenSearch: OK" : "OpenSearch: OFFLINE";
@@ -177,23 +183,27 @@ async function refreshStatus() {
     }
   }
 
-  // Drive auto-tick based on stream status
   handleAutoTickForStatus(statusStr);
 
-  // Timestamps
   if (lastTelemetryEl) {
-    lastTelemetryEl.textContent = formatDateTime(data.last_telemetry_sent_at);
+    lastTelemetryEl.textContent = formatDateTime(
+      data.last_telemetry_sent_at,
+    );
   }
   if (lastHeartbeatEl) {
-    lastHeartbeatEl.textContent = formatDateTime(data.last_heartbeat_sent_at);
+    lastHeartbeatEl.textContent = formatDateTime(
+      data.last_heartbeat_sent_at,
+    );
   }
 
-  // Config
   const cfg = data.config || {};
   if (cfgDataIntervalEl && typeof cfg.data_interval_seconds === "number") {
     cfgDataIntervalEl.textContent = `${cfg.data_interval_seconds}s`;
   }
-  if (cfgHeartbeatIntervalEl && typeof cfg.heartbeat_interval_seconds === "number") {
+  if (
+    cfgHeartbeatIntervalEl &&
+    typeof cfg.heartbeat_interval_seconds === "number"
+  ) {
     cfgHeartbeatIntervalEl.textContent = `${cfg.heartbeat_interval_seconds}s`;
   }
   if (cfgModeEl && cfg.mode) {
@@ -203,27 +213,33 @@ async function refreshStatus() {
     cfgIndexEl.textContent = cfg.target_index || data.opensearch_index;
   }
 
-  // Queue size (we don't have a direct value yet -> show N/A)
   if (queueSizeEl) {
     queueSizeEl.textContent = "n/a";
   }
 
-  if (datasetPosEl && typeof data.current_dataset_position === "number") {
+  if (
+    datasetPosEl &&
+    typeof data.current_dataset_position === "number"
+  ) {
     datasetPosEl.textContent = data.current_dataset_position.toString();
   }
 
-  // Metrics
-  if (metricTotalEl && typeof data.total_messages_sent === "number") {
+  if (
+    metricTotalEl &&
+    typeof data.total_messages_sent === "number"
+  ) {
     metricTotalEl.textContent = data.total_messages_sent.toString();
   }
-  if (metricAttackedEl && typeof data.total_attacked_messages === "number") {
+  if (
+    metricAttackedEl &&
+    typeof data.total_attacked_messages === "number"
+  ) {
     metricAttackedEl.textContent = data.total_attacked_messages.toString();
   }
 
-  // We didn't include started_at / updated_at in the status response yet,
-  // so for now we just leave started_at as "–" and updated_at = now.
   if (metricStartedEl) metricStartedEl.textContent = "–";
-  if (metricUpdatedEl) metricUpdatedEl.textContent = new Date().toLocaleString();
+  if (metricUpdatedEl)
+    metricUpdatedEl.textContent = new Date().toLocaleString();
 }
 
 // -------------------------
@@ -280,7 +296,8 @@ function updateAttackSummaryFromEvent(event) {
 
   if (idEl) idEl.textContent = event.attack_event_id;
   if (profileEl) profileEl.textContent = event.profile_name;
-  if (affectedEl) affectedEl.textContent = event.affected_messages_count.toString();
+  if (affectedEl)
+    affectedEl.textContent = event.affected_messages_count.toString();
 
   if (statusEl) {
     let tone = "neutral";
@@ -357,7 +374,6 @@ async function refreshAttackEvents() {
 function attachEventHandlers() {
   const btnStart = document.getElementById("btn-start-stream");
   const btnStop = document.getElementById("btn-stop-stream");
-  const btnTick = document.getElementById("btn-tick-stream");
   const btnRefreshStatus = document.getElementById("btn-refresh-status");
   const btnTriggerAttack = document.getElementById("btn-trigger-attack");
 
@@ -383,18 +399,6 @@ function attachEventHandlers() {
     });
   }
 
-  if (btnTick) {
-    btnTick.addEventListener("click", async () => {
-      try {
-        await apiPost("/stream/tick");
-        await refreshStatus();
-        await refreshAttackEvents();
-      } catch (err) {
-        console.error(err);
-      }
-    });
-  }
-
   if (btnRefreshStatus) {
     btnRefreshStatus.addEventListener("click", async () => {
       await refreshStatus();
@@ -407,8 +411,12 @@ function attachEventHandlers() {
       event.preventDefault();
       const feedbackEl = document.getElementById("attack-feedback");
       const profileSelect = document.getElementById("attack-profile-select");
-      const messagesInput = document.getElementById("attack-messages-to-affect");
-      const durationInput = document.getElementById("attack-duration-seconds");
+      const messagesInput = document.getElementById(
+        "attack-messages-to-affect",
+      );
+      const durationInput = document.getElementById(
+        "attack-duration-seconds",
+      );
 
       if (!profileSelect || !profileSelect.value) {
         if (feedbackEl) {
@@ -450,7 +458,8 @@ function attachEventHandlers() {
       } catch (err) {
         console.error("Failed to trigger attack:", err);
         if (feedbackEl) {
-          feedbackEl.textContent = "Error triggering attack (see console).";
+          feedbackEl.textContent =
+            "Error triggering attack (see console).";
         }
       }
     });
