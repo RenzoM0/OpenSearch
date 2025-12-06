@@ -29,8 +29,16 @@ class AttackEngine:
     - should_suppress(message, now) -> bool
     - apply_attack(message) -> TurbineMessage
 
-    For the 'Loss of Contact' attack (MESSAGE_SUPPRESSION + TIME_WINDOW),
-    we simply drop messages (usually heartbeats) while the attack is active.
+    Types of attacks:
+
+    1) Loss of Contact (MESSAGE_SUPPRESSION + TIME_WINDOW)
+       -> should_suppress() drops heartbeats/telemetry.
+
+    2) FDI Version B (DATA_MANIPULATION + MULTIPLY)
+       -> ±10–15% bias on LV ActivePower, wind unchanged.
+
+    3) Command/Actuator Manipulation (DATA_MANIPULATION + OVERRIDE)
+       -> power forced to 0 or a small value (0–500 kW) while wind stays high.
     """
 
     enabled: bool = True
@@ -205,7 +213,7 @@ class AttackEngine:
         For Loss of Contact (MESSAGE_SUPPRESSION attack), this method will not
         be used, because messages are already dropped by should_suppress().
 
-        For DATA_MANIPULATION attacks (POWER_SPOOF, POWER_DRIFT, ...), this
+        For DATA_MANIPULATION attacks (FDI, command/actuator, etc.), this
         updates TelemetryReading values and marks them as attacked.
         """
         if not self.enabled:
@@ -225,15 +233,39 @@ class AttackEngine:
 
         manip_type = profile.manipulation_type
 
+        # ------------------------------------------------------------------
+        # Manipulation logic
+        # ------------------------------------------------------------------
         if manip_type is ManipulationType.OVERRIDE:
-            # Example: set power to an unrealistically high fixed value
-            # (keep at least current value * 3 or 3000 kW)
-            base = message.lv_active_power_kw or 0.0
-            message.lv_active_power_kw = max(base * 3.0, 3000.0)
+            # Command / Actuator Manipulation:
+            #
+            # Simulate remote stop / on-off flapping:
+            # - power drops to 0 kW
+            # - OR flaps between 0 and a small value (0–500 kW)
+            #
+            # We *do not* touch wind_speed_ms.
+            mode = random.random()
+            if mode < 0.6:
+                # 60% of the time: complete stop
+                message.lv_active_power_kw = 0.0
+            else:
+                # 40% of the time: low, unstable production (0–500 kW)
+                message.lv_active_power_kw = random.uniform(0.0, 500.0)
 
         elif manip_type is ManipulationType.MULTIPLY:
-            # Example: double the active power
-            message.lv_active_power_kw *= 2.0
+            # FDI Version B behaviour:
+            #
+            # - Keep wind_speed_ms unchanged
+            # - Bias LV ActivePower by ±10–15%
+            #
+            # This simulates false data injection where the reported power
+            # no longer matches the real turbine behaviour for the given wind.
+            base = message.lv_active_power_kw or 0.0
+            if base != 0.0:
+                # Random factor between 0.85 and 1.15 (±15%)
+                factor = random.uniform(0.85, 1.15)
+                message.lv_active_power_kw = base * factor
+            # If base is 0, we leave it at 0 (no point scaling)
 
         elif manip_type is ManipulationType.OFFSET:
             # Example: add a fixed offset to active power
@@ -244,7 +276,7 @@ class AttackEngine:
             factor = random.uniform(1.5, 3.0)
             message.lv_active_power_kw *= factor
 
-        # Basic anomaly score bump to make it stand out
+        # Basic anomaly score bump to make it stand out (for ground truth)
         current_score = message.anomaly_score or 0.0
         message.anomaly_score = max(current_score, 1.0)
 

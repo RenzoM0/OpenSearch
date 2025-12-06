@@ -17,9 +17,18 @@ class AppSettings:
 
     Values here correspond to the .env file:
     - APP_ENV
+
     - OPENSEARCH_HOST / PORT / SCHEME / USERNAME / PASSWORD / INDEX
-    - STREAM_DATA_INTERVAL_SECONDS / STREAM_HEARTBEAT_INTERVAL_SECONDS / STREAM_MODE
-    - LOSS_CONTACT_DURATION_SECONDS (for the Loss of Contact attack)
+
+    - STREAM_DATA_INTERVAL_SECONDS
+    - STREAM_HEARTBEAT_INTERVAL_SECONDS
+    - STREAM_MODE
+      * REPLAY_DATASET  -> replay from CSV (your current default)
+      * SYNTHETIC       -> generated data
+      * MIXED           -> combination (future use)
+
+    - LOSS_CONTACT_DURATION_SECONDS
+      * default window for the Loss-of-Contact attack profile
     """
 
     # --- App environment ---
@@ -43,7 +52,8 @@ class AppSettings:
     stream_heartbeat_interval_seconds: int = int(
         os.getenv("STREAM_HEARTBEAT_INTERVAL_SECONDS", "2")
     )
-    # Default to REPLAY_DATASET when nothing is set
+
+    # Default to REPLAY_DATASET now (instead of SYNTHETIC)
     stream_mode: str = os.getenv("STREAM_MODE", "REPLAY_DATASET").upper()
 
     # --- Attack defaults ---
@@ -51,7 +61,12 @@ class AppSettings:
     loss_contact_duration_seconds: int = int(
         os.getenv("LOSS_CONTACT_DURATION_SECONDS", "600")
     )
-
+    fdi_messages_to_affect_default: int = int(
+        os.getenv("FDI_MESSAGES_TO_AFFECT", "50")
+    )
+    cmd_actuator_duration_seconds: int = int(
+        os.getenv("CMD_ACTUATOR_DURATION_SECONDS", "600")
+    )
 
 _settings_instance: Optional[AppSettings] = None
 

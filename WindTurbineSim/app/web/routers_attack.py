@@ -28,55 +28,26 @@ router = APIRouter(prefix="/attack", tags=["attacks"])
 
 
 def _create_default_profiles() -> Dict[str, AttackProfile]:
-    """Create a small set of default attack profiles for the simulator."""
+    """Create the default attack profiles for the simulator."""
     profiles: Dict[str, AttackProfile] = {}
 
     settings = get_settings()
     loss_contact_duration = settings.loss_contact_duration_seconds
+    fdi_messages_to_affect = settings.fdi_messages_to_affect_default
+    cmd_actuator_duration_seconds = settings.cmd_actuator_duration_seconds
 
-    # 1) High power spoof – unrealistically high power for one reading
-    profiles["POWER_SPOOF"] = AttackProfile(
-        attack_profile_id="POWER_SPOOF",
-        name="High Power Spoof (single reading)",
-        description=(
-            "Sets the active power to an unrealistically high value "
-            "for a single telemetry reading."
-        ),
-        attack_category=AttackCategory.DATA_MANIPULATION,
-        manipulation_type=ManipulationType.OVERRIDE,
-        duration_mode=DurationMode.SINGLE_MESSAGE,
-        default_messages_to_affect=1,
-        default_duration_seconds=0,
-        fields_affected="lv_active_power_kw, content",
-        severity=4,
-        enabled=True,
-    )
-
-    # 2) Power offset – several readings slightly too high
-    profiles["POWER_OFFSET_MULTI"] = AttackProfile(
-        attack_profile_id="POWER_OFFSET_MULTI",
-        name="Power Offset (multiple readings)",
-        description=(
-            "Increases active power output by a fixed offset "
-            "for multiple consecutive readings."
-        ),
-        attack_category=AttackCategory.DATA_MANIPULATION,
-        manipulation_type=ManipulationType.OFFSET,
-        duration_mode=DurationMode.MULTIPLE_MESSAGES,
-        default_messages_to_affect=5,
-        default_duration_seconds=0,
-        fields_affected="lv_active_power_kw",
-        severity=3,
-        enabled=True,
-    )
-
-    # 3) Loss of contact – suppress heartbeats for a configurable time window
+    # 1) Loss of Contact – suppress heartbeats for a configurable time window
+    #
+    # Scenario 1: Loss of contact / missing heartbeats. This uses
+    # MESSAGE_SUPPRESSION + TIME_WINDOW and is implemented via
+    # AttackEngine.should_suppress().
     profiles["LOSS_CONTACT_10MIN"] = AttackProfile(
         attack_profile_id="LOSS_CONTACT_10MIN",
         name=f"Loss of Contact ({loss_contact_duration} seconds)",
         description=(
             "Simulates loss of contact by suppressing heartbeat messages "
-            f"for about {loss_contact_duration} seconds."
+            f"for about {loss_contact_duration} seconds. The turbine keeps "
+            "running, but monitoring stops seeing heartbeats."
         ),
         attack_category=AttackCategory.MESSAGE_SUPPRESSION,
         manipulation_type=None,
@@ -84,6 +55,69 @@ def _create_default_profiles() -> Dict[str, AttackProfile]:
         default_messages_to_affect=0,
         default_duration_seconds=loss_contact_duration,
         fields_affected="heartbeats (suppressed)",
+        severity=5,
+        enabled=True,
+    )
+
+    # 2) False Data Injection – Version B (±10–15% power bias)
+    #
+    # Scenario 3 in your write-up: wind speed stays the same, but
+    # LV ActivePower is biased by about ±10–15%. This is a classic FDI
+    # pattern: the relationship between wind and power is subtly wrong.
+    #
+    # Implemented in AttackEngine as:
+    #   - attack_category = DATA_MANIPULATION
+    #   - manipulation_type = MULTIPLY
+    #
+    # AttackEngine MULTIPLY branch:
+    #   - leaves wind_speed_ms unchanged
+    #   - scales lv_active_power_kw by a random factor in [0.85, 1.15]
+    profiles["FDI_POWER_BIAS_V2"] = AttackProfile(
+        attack_profile_id="FDI_POWER_BIAS_V2",
+        name="False Data Injection – Power Bias (Version B)",
+        description=(
+            "FDI Version B: keeps wind speed unchanged but biases LV ActivePower "
+            "by roughly ±10–15%. In OpenSearch this weakens the correlation "
+            "between wind speed and power and shifts the power curve."
+        ),
+        attack_category=AttackCategory.DATA_MANIPULATION,
+        manipulation_type=ManipulationType.MULTIPLY,
+        duration_mode=DurationMode.MULTIPLE_MESSAGES,
+        default_messages_to_affect=fdi_messages_to_affect,  # affects ~50 telemetry messages by default
+        default_duration_seconds=0,
+        fields_affected="lv_active_power_kw",
+        severity=4,
+        enabled=True,
+    )
+
+    # 3) Command / Actuator Manipulation – remote stop / on–off flapping
+    #
+    # Scenario 2 in your write-up: attacker sends malicious commands to
+    # the turbine controller: stop, repeated on/off, etc. Wind remains high
+    # (e.g. 8–12 m/s) but LV ActivePower periodically drops to 0 or low values.
+    #
+    # Implemented in AttackEngine as:
+    #   - attack_category = DATA_MANIPULATION
+    #   - manipulation_type = OVERRIDE
+    #
+    # AttackEngine OVERRIDE branch:
+    #   - ~60% of the time: lv_active_power_kw = 0.0 (complete stop)
+    #   - ~40% of the time: lv_active_power_kw ∈ [0, 500] kW
+
+    profiles["CMD_ACTUATOR_MANIP_V1"] = AttackProfile(
+        attack_profile_id="CMD_ACTUATOR_MANIP_V1",
+        name="Command / Actuator Manipulation",
+        description=(
+            "Simulates remote command or actuator manipulation: LV ActivePower "
+            "drops to 0 kW or flaps between 0 and ~500 kW while wind speed "
+            "remains high. Models short control disruptions or intentional stops."
+        ),
+        attack_category=AttackCategory.DATA_MANIPULATION,
+        manipulation_type=ManipulationType.OVERRIDE,
+        duration_mode=DurationMode.TIME_WINDOW,
+        default_messages_to_affect=0,
+        default_duration_seconds=cmd_actuator_duration_seconds,
+        fields_affected="lv_active_power_kw",
         severity=5,
         enabled=True,
     )
