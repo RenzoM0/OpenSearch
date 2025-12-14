@@ -14,7 +14,6 @@ from app.domain.attacks import (
     AttackCategory,
     ManipulationType,
     DurationMode,
-    AttackEventStatus,
 )
 from app.web.routers_streaming import get_streaming_service
 
@@ -45,19 +44,20 @@ def _create_default_profiles() -> Dict[str, AttackProfile]:
         attack_profile_id="LOSS_CONTACT_10MIN",
         name=f"Loss of Contact ({loss_contact_duration} seconds)",
         description=(
-            "Simulates loss of contact by suppressing heartbeat messages "
-            f"for about {loss_contact_duration} seconds. The turbine keeps "
-            "running, but monitoring stops seeing heartbeats."
+            "Simulates loss of contact by suppressing all messages "
+            f"(heartbeat + telemetry) for about {loss_contact_duration} seconds."
         ),
         attack_category=AttackCategory.MESSAGE_SUPPRESSION,
         manipulation_type=None,
         duration_mode=DurationMode.TIME_WINDOW,
         default_messages_to_affect=0,
         default_duration_seconds=loss_contact_duration,
-        fields_affected="heartbeats (suppressed)",
+        # Belangrijk: beide woorden komen erin voor
+        fields_affected="heartbeats, telemetry (all data suppressed)",
         severity=5,
         enabled=True,
     )
+
 
     # 2) False Data Injection – Version B (±10–15% power bias)
     #
@@ -72,11 +72,11 @@ def _create_default_profiles() -> Dict[str, AttackProfile]:
     # AttackEngine MULTIPLY branch:
     #   - leaves wind_speed_ms unchanged
     #   - scales lv_active_power_kw by a random factor in [0.85, 1.15]
-    profiles["FDI_POWER_BIAS_V2"] = AttackProfile(
-        attack_profile_id="FDI_POWER_BIAS_V2",
-        name="False Data Injection – Power Bias (Version B)",
+    profiles["FDI_POWER_BIAS"] = AttackProfile(
+        attack_profile_id="FDI_POWER_BIAS",
+        name="False Data Injection – Power Bias",
         description=(
-            "FDI Version B: keeps wind speed unchanged but biases LV ActivePower "
+            "FDI: keeps wind speed unchanged but biases LV ActivePower "
             "by roughly ±10–15%. In OpenSearch this weakens the correlation "
             "between wind speed and power and shifts the power curve."
         ),
@@ -104,8 +104,8 @@ def _create_default_profiles() -> Dict[str, AttackProfile]:
     #   - ~60% of the time: lv_active_power_kw = 0.0 (complete stop)
     #   - ~40% of the time: lv_active_power_kw ∈ [0, 500] kW
 
-    profiles["CMD_ACTUATOR_MANIP_V1"] = AttackProfile(
-        attack_profile_id="CMD_ACTUATOR_MANIP_V1",
+    profiles["CMD_ACTUATOR_MANIP"] = AttackProfile(
+        attack_profile_id="CMD_ACTUATOR_MANIP",
         name="Command / Actuator Manipulation",
         description=(
             "Simulates remote command or actuator manipulation: LV ActivePower "
