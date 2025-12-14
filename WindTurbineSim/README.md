@@ -1,66 +1,57 @@
 # WindTurbineSim
 
-WindTurbineSim is a small FastAPI application that simulates a wind turbine
-sending telemetry and heartbeat messages into an OpenSearch index.
+WindTurbineSim is a small simulation backend + dashboard that **streams wind turbine SCADA data into OpenSearch** and lets you simulate **three cyber-attack scenarios**:
 
-!!! FOR DASHBOARD WINDTURBINESIM GO TO url/ui !!!
+1. **Loss of Contact** – heartbeats disappear, monitoring goes “offline”.
+2. **False Data Injection (FDI) – Power Bias (Version B)** – wind stays the same, reported power is subtly wrong.
+3. **Command / Actuator Manipulation** – power suddenly drops to 0 or flaps between 0–500 kW while wind is good.
 
-It’s built as a teaching/demo tool:
-
-- normal “healthy” turbine behaviour
-- optional CSV replay of real turbine data
-- attack simulation layer (message suppression / manipulation)
-- OpenSearch + Dashboards to explore the data
+The goal is **not** only to send data, but to create **attack patterns you can recognise and hunt for in OpenSearch** (dashboards, correlations, alerts, etc.).
 
 ---
 
-## Features
+## 1. Tech stack & structure
 
-- **FastAPI backend** with a simple web dashboard (`/ui`)
-- **Streaming service** that:
-  - generates synthetic telemetry **or**
-  - replays real data from `data/windturbine_data.csv`
-- **Heartbeat messages** to simulate “keep-alive” signals
-- **OpenSearch integration**
-  - configurable host/port/scheme
-  - automatic index creation
-- **Attack engine (WIP)**
-  - framework for loss-of-contact and data manipulation attacks
-- **Docker image** so teammates can run it without installing Python
-- **Docker Compose integration** with an OpenSearch cluster (in parent folder)
+**Tech stack**
 
----
+- **Backend:** Python, FastAPI, Uvicorn  
+- **Frontend:** HTML + vanilla JS, minimal CSS  
+- **Search / analytics:** OpenSearch  
+- **Containerisation:** Docker + (optional) Docker Compose  
+- **Config:** `.env` file + Pydantic `Settings`
 
-## Requirements
-
-For local (non-Docker) development:
-
-- Python 3.11+
-- A running OpenSearch cluster (e.g. via Docker)
-- Node/JS is not required – frontend is plain HTML/JS served by FastAPI
-
-For the Docker version:
-
-- Docker Desktop (or any recent Docker engine)
-- Optional: docker compose if you run it together with OpenSearch
-
----
-
-## Project structure
+**Folder structure (inside `WindTurbineSim/`)**
 
 ```text
 WindTurbineSim/
-  app/
-    domain/          # Core domain models (turbine, messages, stream config, attacks)
-    infrastructure/  # OpenSearch client, telemetry sources, queues
-    services/        # StreamingService, AttackEngine, HeartbeatMonitor
-    web/             # FastAPI app, routers, templates, static JS/CSS
-  config/
-    __init__.py
-    settings.py      # AppSettings + get_settings() (reads .env)
-  data/
-    Windturbine data.csv  # Source dataset for REPLAY_DATASET mode
-  Dockerfile
-  requirements.txt
-  README.md
-
+├─ app/
+│  ├─ domain/          # Pure domain models
+│  │  ├─ wind_turbine.py
+│  │  ├─ messages.py
+│  │  ├─ stream_models.py
+│  │  └─ attacks.py
+│  ├─ infrastructure/  # Integration with CSV, OpenSearch, queues
+│  │  ├─ telemetry_source.py
+│  │  ├─ opensearch_client.py
+│  │  └─ queue.py
+│  ├─ services/        # Orchestration / business logic
+│  │  ├─ streaming_service.py
+│  │  └─ attack_engine.py
+│  └─ web/             # FastAPI web / API layer + UI
+│     ├─ main_app.py
+│     ├─ routers_streaming.py
+│     ├─ routers_attack.py
+│     ├─ templates/
+│     │  ├─ base.html
+│     │  └─ dashboard.html
+│     └─ static/
+│        ├─ css/main.css
+│        └─ js/dashboard.js
+├─ config/
+│  ├─ __init__.py      # get_settings()
+│  └─ settings.py      # Pydantic Settings class
+├─ data/
+│  └─ windturbine_data.csv  # Input dataset (SCADA-like)
+├─ requirements.txt
+├─ Dockerfile
+└─ README.md           
