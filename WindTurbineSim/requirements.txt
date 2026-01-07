@@ -1,9 +1,0 @@
-fastapi
-uvicorn[standard]
-
-opensearch-py
-
-python-dotenv
-
-jinja2
-python-multipart

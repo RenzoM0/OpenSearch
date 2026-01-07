@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WindTurbineSim</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">WINDTURBINESIM</div>
+    <div class="badges">
+      <span class="badge" id="envBadge">ENVIRONMENT: development</span>
+      <span class="badge ok" id="osBadge">OPENSEARCH: ?</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>WindTurbineSim</h1>
+    <p class="subtitle">Simulated wind turbine streaming to OpenSearch with attack scenarios.</p>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Turbine & Connectivity</h2>
+        <div class="row">
+          <div>
+            <div class="title">Wind Turbine Alpha</div>
+            <div class="muted">Demo Site</div>
+          </div>
+          <div class="right">
+            <div class="pill" id="connectivityPill">ONLINE</div>
+          </div>
+        </div>
+
+        <div class="kv">
+          <div><span class="k">STREAM STATUS</span><span class="v" id="streamStatus">STOPPED</span></div>
+          <div><span class="k">LAST TELEMETRY</span><span class="v" id="lastTelemetry">—</span></div>
+          <div><span class="k">LAST HEARTBEAT</span><span class="v" id="lastHeartbeat">—</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Streaming Control</h2>
+        <div class="btnrow">
+          <button class="btn green" id="btnStart">Start streaming</button>
+          <button class="btn blue" id="btnStop">Stop streaming</button>
+        </div>
+
+        <div class="kv">
+          <div><span class="k">TELEMETRY INTERVAL</span><span class="v" id="telemetryInterval">—</span></div>
+          <div><span class="k">HEARTBEAT INTERVAL</span><span class="v" id="heartbeatInterval">—</span></div>
+          <div><span class="k">TARGET INDEX</span><span class="v" id="targetIndex">—</span></div>
+          <div><span class="k">DATASET POSITION</span><span class="v" id="datasetPos">—</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Metrics</h2>
+        <div class="metrics">
+          <div class="metric">
+            <div class="metricLabel">TOTAL MESSAGES</div>
+            <div class="metricValue" id="totalMessages">0</div>
+          </div>
+          <div class="metric">
+            <div class="metricLabel">ATTACKED MESSAGES</div>
+            <div class="metricValue" id="attackedMessages">0</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Attack Simulation</h2>
+        <label class="label">Attack profile</label>
+        <select id="attackProfile" class="input">
+          <option value="">Select an attack profile...</option>
+          <option value="FDI">False Data Injection (FDI)</option>
+          <option value="ACTUATOR">Command / Actuator Manipulation</option>
+          <option value="LOSS_OF_CONTACT">Loss of contact</option>
+        </select>
+
+        <label class="label">Messages to affect</label>
+        <input id="attackMessages" class="input" type="number" value="10" min="1" max="1000" />
+
+        <label class="label">Duration in seconds</label>
+        <input id="attackDuration" class="input" type="number" value="30" min="1" max="600" />
+
+        <button class="btn red full" id="btnAttack">Trigger attack</button>
+
+        <div class="muted small" id="attackInfo">Select an attack profile and click "Trigger attack".</div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
